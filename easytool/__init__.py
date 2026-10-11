@@ -1,6 +1,6 @@
 """EasyTool: install Maya shelf tools from GitHub repos, .zip links and folders."""
 
-__version__ = "0.9.0"
+__version__ = "0.9.1"
 
 
 def show():

@@ -16,3 +16,9 @@ The first release.
   - Tools: updates come from the version numbers in the feed, and uninstalling removes only what EasyTool installed, putting back any files it replaced.
   - EasyTool itself: updates come from its update source and take effect without restarting Maya.
 - **One list per Maya version:** each Maya version keeps its own folders and its own list of installed tools.
+
+## 0.9.1 (beta)
+
+Install icon change
+
+- Testing auto update system
