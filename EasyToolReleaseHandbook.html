@@ -1,0 +1,615 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>EasyTool Release Handbook</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column (~46rem); fill-in helpers sit inside each task as working panels; steps are real numbered sequences. */
+:root {
+  --bg: #F3F2EF;
+  --surface: #FFFFFF;
+  --sunk: #ECE9E4;
+  --line: #DAD5CC;
+  --fg: #1C1B19;
+  --muted: #5B554D;
+  --accent: #A95F08;
+  --accent-fill: #F2A43A;
+  --on-accent: #1A1712;
+  --ok: #2B7446;
+  --warn-bg: #FCEFD8;
+  --warn-fg: #6E4205;
+  --bad: #A3352B;
+  --display: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --body: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #191816; --surface: #211F1C; --sunk: #141311; --line: #38342F;
+    --fg: #EEE8DE; --muted: #ADA597; --accent: #F7BE6E; --accent-fill: #F2A43A; --on-accent: #1A1712;
+    --ok: #9FD59A; --warn-bg: #3A2C17; --warn-fg: #F7BE6E; --bad: #F4A39A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #191816; --surface: #211F1C; --sunk: #141311; --line: #38342F;
+  --fg: #EEE8DE; --muted: #ADA597; --accent: #F7BE6E; --accent-fill: #F2A43A; --on-accent: #1A1712;
+  --ok: #9FD59A; --warn-bg: #3A2C17; --warn-fg: #F7BE6E; --bad: #F4A39A;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 1rem/1.6 var(--body);
+  padding-inline: 16px;
+  padding-block: 0 64px;
+}
+.page { max-width: 46rem; margin: 0 auto; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent-fill); outline-offset: 2px;
+}
+code, pre, .mono { font-family: var(--mono); font-size: 0.875em; }
+p code, li code, td code, dd code { background: var(--sunk); padding: 0.05em 0.35em; border-radius: 4px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h2 { font-size: 1.6rem; font-weight: 700; font-stretch: 88%; }
+h3 { font-size: 1.05rem; font-weight: 700; }
+p { margin: 0; }
+
+/* Masthead */
+.masthead { padding-block: 48px 8px; display: flex; flex-direction: column; gap: 14px; }
+.eyebrow { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+h1 { font-size: clamp(2.2rem, 6vw, 3.2rem); font-weight: 800; font-stretch: 80%; letter-spacing: -0.01em; }
+h1 .mark { color: var(--accent); }
+.lede { font-size: 1.12rem; color: var(--muted); max-width: 38rem; }
+
+.repos { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 12px; margin-top: 12px; }
+.repo { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.repo-name { font-family: var(--mono); font-weight: 500; font-size: 0.95rem; }
+.repo-role { color: var(--muted); font-size: 0.95rem; }
+.repo ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
+.repo li { display: grid; grid-template-columns: minmax(0, 11rem) 1fr; gap: 10px; }
+.repo li code { justify-self: start; overflow-wrap: anywhere; }
+.repo li span { color: var(--muted); }
+
+.flow { margin: 22px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 0; counter-reset: flow; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.flow li { counter-increment: flow; padding: 14px 16px; border-right: 1px solid var(--line); font-size: 0.92rem; display: flex; flex-direction: column; gap: 4px; }
+.flow li:last-child { border-right: 0; }
+.flow li::before { content: counter(flow); font-family: var(--mono); font-size: 0.78rem; color: var(--accent); font-weight: 500; }
+.flow-label { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-top: 26px; }
+@media (max-width: 40rem) { .flow li { border-right: 0; border-bottom: 1px solid var(--line); } .flow li:last-child { border-bottom: 0; } }
+
+nav.toc { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--bg); margin: 28px -16px 0; padding: 10px 16px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.92rem; }
+nav.toc a { color: var(--fg); text-decoration: none; font-weight: 500; }
+nav.toc a:hover { color: var(--accent); }
+
+/* Sections */
+section { padding-block: 44px 8px; display: flex; flex-direction: column; gap: 16px; scroll-margin-top: 56px; }
+.when { color: var(--muted); }
+.kicker { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+
+/* Helpers */
+.helper { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.helper-title { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field.wide { grid-column: 1 / -1; }
+label, .label { font-size: 0.85rem; font-weight: 600; }
+input[type="text"], select, textarea {
+  font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 9px 11px; min-height: 42px; width: 100%;
+}
+textarea { min-height: 64px; resize: vertical; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; min-height: 42px; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent-fill); }
+.status { font-size: 0.92rem; padding: 8px 12px; border-radius: 8px; background: var(--sunk); }
+.status.ok { color: var(--ok); }
+.status.bad { color: var(--bad); }
+
+/* Steps */
+ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: flex; flex-direction: column; gap: 18px; }
+ol.steps > li { counter-increment: step; display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: 4px 12px; }
+ol.steps > li::before {
+  content: counter(step); grid-row: 1 / span 3; width: 1.8rem; height: 1.8rem; border-radius: 50%;
+  background: var(--sunk); color: var(--fg); font-family: var(--mono); font-size: 0.85rem; font-weight: 500;
+  display: grid; place-items: center; margin-top: 1px;
+}
+ol.steps > li > * { grid-column: 2; }
+.step-title { font-weight: 700; }
+.step-body { color: var(--fg); display: flex; flex-direction: column; gap: 10px; }
+.step-body ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+
+/* Code */
+.code { position: relative; background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.code pre { margin: 0; padding: 12px 14px; padding-right: 76px; overflow-x: auto; white-space: pre; line-height: 1.55; }
+.copy {
+  position: absolute; top: 6px; right: 6px; font: 600 0.78rem var(--body); color: var(--fg);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; cursor: pointer; min-height: 30px;
+}
+.copy:hover { border-color: var(--accent-fill); }
+.code-caption { font-size: 0.82rem; color: var(--muted); margin-top: -4px; }
+
+/* Callouts */
+.note { background: var(--warn-bg); color: var(--warn-fg); border-radius: 10px; padding: 12px 14px; font-size: 0.95rem; }
+.note strong { font-weight: 700; }
+
+/* Tables and lists */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 34rem; font-size: 0.93rem; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+dl.rules { margin: 0; display: flex; flex-direction: column; gap: 14px; }
+dl.rules dt { font-weight: 700; }
+dl.rules dd { margin: 2px 0 0; color: var(--fg); }
+.ladder { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+pre.tree { margin: 0; padding: 12px 14px; background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; line-height: 1.55; }
+pre.tree .c { color: var(--muted); }
+
+footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.9rem; }
+
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="page">
+  <header class="masthead">
+    <p class="eyebrow">Maintainer guide · EasyTool 0.9.0 beta</p>
+    <h1>EasyTool <span class="mark">Release</span> Handbook</h1>
+    <p class="lede">What to do after you change something: update one of your tools, add a new one, or ship a new EasyTool. The helpers below fill in the exact version numbers, commands and <code>tools.json</code> lines for you.</p>
+
+    <div class="repos">
+      <div class="repo">
+        <a class="repo-name" href="https://github.com/Jurakii/EasyTool">Jurakii/EasyTool</a>
+        <p class="repo-role">The app. Its code, and a release zip for each version.</p>
+        <ul>
+          <li><code>easytool/__init__.py</code><span>the version number</span></li>
+          <li><code>CHANGELOG.md</code><span>what changed</span></li>
+          <li><code>tools/build_release.py</code><span>builds the zip</span></li>
+        </ul>
+      </div>
+      <div class="repo">
+        <a class="repo-name" href="https://github.com/Jurakii/Tools">Jurakii/Tools</a>
+        <p class="repo-role">Your tools and the feed every EasyTool reads.</p>
+        <ul>
+          <li><code>tools.json</code><span>what users see, and their versions</span></li>
+          <li><code>scripts/*.zip</code><span>your tools</span></li>
+          <li><code>icons/</code><span>pictures for your site and the list</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="flow-label">How an update reaches users</p>
+    <ol class="flow">
+      <li>You upload the new zip: to <code>scripts/</code> for a tool, or to a GitHub release for EasyTool.</li>
+      <li>You raise its <code>version</code> in <code>tools.json</code> and push.</li>
+      <li>EasyTool reads <code>tools.json</code> whenever its panel opens or someone presses refresh.</li>
+      <li>Users see <strong>Update</strong> on the tool, or the bar offering a new EasyTool.</li>
+    </ol>
+  </header>
+
+  <nav class="toc" aria-label="Sections">
+    <a href="#update-tool">Update a tool</a>
+    <a href="#add-tool">Add a tool</a>
+    <a href="#release">Release EasyTool</a>
+    <a href="#versions">Version rules</a>
+    <a href="#trouble">Troubleshooting</a>
+    <a href="#fixes">Pending fixes</a>
+  </nav>
+
+  <main>
+    <!-- Update a tool -->
+    <section id="update-tool">
+      <p class="kicker">Jurakii/Tools</p>
+      <h2>Update one of your tools</h2>
+      <p class="when">When you've changed Assign RGB, Clean Sweep, Grid Defaults or any tool that's already listed.</p>
+
+      <div class="helper" aria-labelledby="ut-title">
+        <p class="helper-title" id="ut-title">Fill in</p>
+        <div class="fields">
+          <div class="field">
+            <label for="ut-tool">Tool</label>
+            <select id="ut-tool">
+              <option value="assign-rgb">Assign RGB &amp; CMY</option>
+              <option value="clean-sweep">Clean Sweep</option>
+              <option value="grid-defaults">Grid Defaults</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="ut-version">New version</label>
+            <input type="text" id="ut-version" value="1.2" inputmode="decimal" autocomplete="off">
+          </div>
+        </div>
+        <p class="status" id="ut-status" role="status"></p>
+      </div>
+
+      <ol class="steps">
+        <li>
+          <p class="step-title">Make the change and test it in Maya.</p>
+          <div class="step-body"><p>If you changed a button, copy the updated <code>shelf_….mel</code> out of your Maya <code>prefs/shelves</code> folder (Maya writes it when it quits).</p></div>
+        </li>
+        <li>
+          <p class="step-title">Rebuild the zip with the same layout and name.</p>
+          <div class="step-body"><p>Loose <code>.mel</code>/<code>.py</code> files at the top, plus <code>shelves/</code> and <code>icons/</code>. Keep the name <code class="mono" data-out="ut-zip"></code> so the link in <code>tools.json</code> stays the same.</p></div>
+        </li>
+        <li>
+          <p class="step-title">Replace <code class="mono" data-out="ut-zip-path"></code> in Jurakii/Tools.</p>
+        </li>
+        <li>
+          <p class="step-title">Raise the version in <code>tools.json</code>.</p>
+          <div class="step-body">
+            <p>In your tools editor, or by hand in the <code data-out="ut-id"></code> project:</p>
+            <div class="code"><button class="copy" type="button" data-copy="ut-line">Copy</button><pre id="ut-line"></pre></div>
+          </div>
+        </li>
+        <li><p class="step-title">Commit and push Jurakii/Tools.</p></li>
+        <li>
+          <p class="step-title">Check it in Maya.</p>
+          <div class="step-body"><p>Open EasyTool and press refresh. The tool shows <strong>Update</strong> within about 5 minutes; GitHub caches the raw <code>tools.json</code> for a few minutes.</p></div>
+        </li>
+      </ol>
+
+      <p class="note"><strong>Raise the version every time.</strong> EasyTool offers an update only when the number goes up, and it downloads a zip again only for a new version. A replaced zip with the same version never reaches anyone who already has it.</p>
+    </section>
+
+    <!-- Add a tool -->
+    <section id="add-tool">
+      <p class="kicker">Jurakii/Tools</p>
+      <h2>Add a new tool</h2>
+      <p class="when">Your usual "drag into prefs" zip works as it is. EasyTool needs nothing extra inside it.</p>
+
+<pre class="tree">MyTool.zip
+├─ MyTool.mel              <span class="c">loose .mel or .py files go to Maya's scripts folder</span>
+├─ shelves/
+│  └─ shelf_MyTool.mel     <span class="c">its buttons go on the shelf the user picks</span>
+└─ icons/
+   └─ MyTool.png           <span class="c">add MyTool_150.png and MyTool_200.png for sharp scaled icons</span></pre>
+      <p>Every <code>-image</code> name in the shelf file needs a matching file in <code>icons/</code>. <code>userSetup</code> files and installer scripts (<code>install…</code>, <code>drag…</code>) are never copied.</p>
+
+      <div class="helper" aria-labelledby="at-title">
+        <p class="helper-title" id="at-title">Fill in</p>
+        <div class="fields">
+          <div class="field">
+            <label for="at-title-in">Name</label>
+            <input type="text" id="at-title-in" value="Quick Rename" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="at-version">Version</label>
+            <input type="text" id="at-version" value="1.0" inputmode="decimal" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="at-category">Category in EasyTool</label>
+            <select id="at-category">
+              <option>Modeling</option><option>Rigging</option><option>Animation</option><option>Lighting</option>
+              <option>Rendering</option><option>FX</option><option>Pipeline</option><option selected>Utility</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="at-lang">Written in</label>
+            <select id="at-lang"><option>MEL</option><option>Python</option></select>
+          </div>
+          <div class="field wide">
+            <label for="at-desc">One-line description</label>
+            <input type="text" id="at-desc" value="Rename, prefix and number selected nodes in one pass" autocomplete="off">
+          </div>
+        </div>
+      </div>
+
+      <ol class="steps">
+        <li>
+          <p class="step-title">Put the files in Jurakii/Tools.</p>
+          <div class="step-body"><p>The zip goes in <code class="mono" data-out="at-zip-path"></code> and the icon in <code class="mono" data-out="at-icon-path"></code>.</p></div>
+        </li>
+        <li>
+          <p class="step-title">Add the project to <code>tools.json</code>.</p>
+          <div class="step-body">
+            <p>Fill in the same fields in your tools editor, or paste this into <code>projects</code>:</p>
+            <div class="code"><button class="copy" type="button" data-copy="at-json">Copy</button><pre id="at-json"></pre></div>
+          </div>
+        </li>
+        <li><p class="step-title">Commit and push, then press refresh in EasyTool.</p></li>
+      </ol>
+
+      <dl class="rules">
+        <div><dt>The <code>id</code> never changes.</dt><dd>EasyTool remembers what's installed by id. A new id is a different tool to it, so the old one would show as installed but missing from the feed.</dd></div>
+        <div><dt>The Download link must end in <code>.zip</code>.</dt><dd>Projects without a zip link (like Blackjack's <code>.py</code>) stay on your site but don't appear in EasyTool. Setting <code>"enabled": false</code> hides a project from both.</dd></div>
+        <div><dt>A tag sets the category.</dt><dd>The first tag that matches Modeling, Rigging, Animation, Lighting, Rendering, FX, Pipeline or Utility sets the tile color. <code>Shaders</code> counts as Rendering. With no match, a tool is filed under Utility.</dd></div>
+      </dl>
+    </section>
+
+    <!-- Release EasyTool -->
+    <section id="release">
+      <p class="kicker">Jurakii/EasyTool, then Jurakii/Tools</p>
+      <h2>Release a new EasyTool version</h2>
+      <p class="when">When you've changed EasyTool itself. Installed copies offer the update and install it without a Maya restart.</p>
+
+      <div class="helper" aria-labelledby="rel-title">
+        <p class="helper-title" id="rel-title">Fill in</p>
+        <div class="fields">
+          <div class="field">
+            <label for="rel-version">New EasyTool version</label>
+            <input type="text" id="rel-version" value="0.9.1" inputmode="decimal" autocomplete="off">
+          </div>
+          <div class="field">
+            <span class="label" id="rel-pre-label">Release type</span>
+            <label class="check"><input type="checkbox" id="rel-pre" checked aria-describedby="rel-pre-label"> Still beta (pre-release)</label>
+          </div>
+        </div>
+        <p class="status" id="rel-status" role="status"></p>
+      </div>
+
+      <ol class="steps">
+        <li>
+          <p class="step-title">Test your changes.</p>
+          <div class="step-body">
+            <div class="code"><button class="copy" type="button" data-copy="rel-test">Copy</button><pre id="rel-test">cd C:\Users\ncrou\Documents\EasyTool\tests
+"C:\Program Files\Autodesk\Maya2024\bin\mayapy.exe" -m unittest
+"C:\Program Files\Autodesk\Maya2025\bin\mayapy.exe" -m unittest</pre></div>
+            <p>If you changed the panel, the dock, shelves or the installer, also test inside Maya with throwaway prefs. Ask Claude to run the in-Maya tests; they never touch your real shelves.</p>
+          </div>
+        </li>
+        <li>
+          <p class="step-title">Set the version in <code>easytool/__init__.py</code>.</p>
+          <div class="step-body"><div class="code"><button class="copy" type="button" data-copy="rel-init">Copy</button><pre id="rel-init"></pre></div></div>
+        </li>
+        <li>
+          <p class="step-title">Add the changes to the top of <code>CHANGELOG.md</code>.</p>
+          <div class="step-body"><div class="code"><button class="copy" type="button" data-copy="rel-log">Copy</button><pre id="rel-log"></pre></div></div>
+        </li>
+        <li>
+          <p class="step-title">Build the zip.</p>
+          <div class="step-body">
+            <div class="code"><button class="copy" type="button" data-copy="rel-build">Copy</button><pre id="rel-build">cd C:\Users\ncrou\Documents\EasyTool
+python tools\build_release.py</pre></div>
+            <p class="code-caption">Creates <code data-out="rel-zip-path"></code>.</p>
+          </div>
+        </li>
+        <li>
+          <p class="step-title">Try the zip in Maya.</p>
+          <div class="step-body"><p>Unzip it somewhere, drag <code>drag_into_maya.py</code> into Maya, and check the panel opens. To see which version is running, enter this in the Script Editor (Python tab): <code>import easytool; print(easytool.__version__)</code></p></div>
+        </li>
+        <li>
+          <p class="step-title">Commit, tag and push.</p>
+          <div class="step-body"><div class="code"><button class="copy" type="button" data-copy="rel-git">Copy</button><pre id="rel-git"></pre></div></div>
+        </li>
+        <li>
+          <p class="step-title">Publish the GitHub release.</p>
+          <div class="step-body">
+            <p>On <a href="https://github.com/Jurakii/EasyTool/releases/new">github.com/Jurakii/EasyTool/releases/new</a>:</p>
+            <ul>
+              <li>Choose the tag <code data-out="rel-tag"></code> and use it as the title.</li>
+              <li>Paste the new <code>CHANGELOG.md</code> section as the description.</li>
+              <li>Attach <code data-out="rel-zip-name"></code> from the <code>dist</code> folder.</li>
+              <li data-out-pre></li>
+              <li>Press <strong>Publish release</strong>, not "Save draft". A draft's download link doesn't work for anyone else.</li>
+            </ul>
+          </div>
+        </li>
+        <li>
+          <p class="step-title">Point <code>tools.json</code> at the new release.</p>
+          <div class="step-body">
+            <p>In Jurakii/Tools, change two lines of the <code>easytool</code> project, then commit and push:</p>
+            <div class="code"><button class="copy" type="button" data-copy="rel-lines">Copy</button><pre id="rel-lines"></pre></div>
+            <details>
+              <summary>The whole entry, if you'd rather replace it</summary>
+              <div class="code" style="margin-top:10px"><button class="copy" type="button" data-copy="rel-entry">Copy</button><pre id="rel-entry"></pre></div>
+            </details>
+          </div>
+        </li>
+        <li>
+          <p class="step-title">Check that installed copies see it.</p>
+          <div class="step-body"><p>In Maya, with an older EasyTool installed, open the panel or press refresh. The bar should say "EasyTool <span data-out="rel-version"></span> is available". Press <strong>Update</strong>, then <strong>Reopen</strong>.</p></div>
+        </li>
+      </ol>
+
+      <p class="note"><strong>Publish the release before you change <code>tools.json</code>.</strong> If the feed points at a zip that doesn't exist yet, anyone who presses Update in the meantime gets a download error.</p>
+    </section>
+
+    <!-- Version rules -->
+    <section id="versions">
+      <p class="kicker">Both repos</p>
+      <h2>Version rules</h2>
+      <dl class="rules">
+        <div><dt>Versions compare number by number.</dt><dd><span class="ladder">0.9.0 → 0.9.1 → 0.10.0 → 1.0.0</span>. So 0.10 is newer than 0.9, and two-part versions like your tools' <code>1.1</code> work too (1.1 means 1.1.0).</dd></div>
+        <div><dt>For EasyTool, <code>tools.json</code> and the zip must agree.</dt><dd>The version in the <code>easytool</code> entry has to match <code>__version__</code> inside the zip. If the zip isn't newer than what someone has installed, the update stops with "isn't newer" and nothing is changed.</dd></div>
+        <div><dt>Never reuse a version number.</dt><dd>EasyTool keeps each version's download. Re-uploading a different zip under the same number won't reach anyone who already downloaded it.</dd></div>
+        <div><dt>There are no downgrades.</dt><dd>EasyTool only offers newer versions. To undo a bad release, publish a fixed one with a higher number.</dd></div>
+        <div><dt>A suggested scheme for EasyTool.</dt><dd>Bump the last number for fixes (0.9.1), the middle one for new features (0.10.0), and go to 1.0.0 when it's out of beta. From then on, leave "pre-release" unticked.</dd></div>
+      </dl>
+    </section>
+
+    <!-- Troubleshooting -->
+    <section id="trouble">
+      <p class="kicker">When something's off</p>
+      <h2>Troubleshooting</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">What you see</th><th scope="col">Likely cause</th><th scope="col">Fix</th></tr></thead>
+          <tbody>
+            <tr><td>A tool update doesn't show up</td><td>The version wasn't raised, <code>tools.json</code> isn't pushed, or GitHub's cache</td><td>Raise the version, push, wait about 5 minutes, press refresh</td></tr>
+            <tr><td>The EasyTool update bar never appears</td><td>The entry's <code>id</code> isn't exactly <code>easytool</code>, the version isn't higher, the entry is disabled, or the link doesn't end in <code>.zip</code></td><td>Fix the <code>easytool</code> project in <code>tools.json</code></td></tr>
+            <tr><td>"The download is EasyTool X, which isn't newer…"</td><td><code>__version__</code> wasn't changed before building, so the zip has the old number</td><td>Set the version, rebuild, and swap the zip attached to the release. Nobody could install the bad one, so reusing the number is fine here</td></tr>
+            <tr><td>Update fails with a download error</td><td>The release is a draft, the zip's name differs from the link, or the release isn't published yet</td><td>Open the Download link in a browser; it should download the zip</td></tr>
+            <tr><td>A button shows a blank icon</td><td>Its <code>-image</code> name has no matching file in <code>icons/</code></td><td>Rename one to match (see Clean Sweep below)</td></tr>
+            <tr><td>A yellow warning about a source in the panel</td><td>That source couldn't be read: you're offline, or <code>tools.json</code> isn't valid JSON</td><td>Hover the warning for details; check <code>tools.json</code> opens in your editor</td></tr>
+            <tr><td>EasyTool says "update it there" instead of updating</td><td>That copy runs from the source folder (next to <code>drag_into_maya.py</code> or in the git repo)</td><td>Expected: the source copy never overwrites itself. Pull or edit the repo instead</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Pending fixes -->
+    <section id="fixes">
+      <p class="kicker">Jurakii/Tools</p>
+      <h2>Fixes waiting in your tools</h2>
+      <p class="when">Found during testing and left for you to apply. After each one, follow <a href="#update-tool">Update one of your tools</a> with a higher version.</p>
+
+      <h3>Clean Sweep shows a blank icon</h3>
+      <p>Its button asks for <code>Cleanup.png</code>, but the zip ships <code>icons/CleanSweep.png</code>. In <code>shelves/shelf_CleanSweep.mel</code>, change both lines:</p>
+      <div class="code"><button class="copy" type="button" data-copy="fix-sweep">Copy</button><pre id="fix-sweep">        -image "CleanSweep.png"
+        -image1 "CleanSweep.png"</pre></div>
+
+      <h3>Assign RGB fails on a second click</h3>
+      <p>The window <code>assignRGB</code> still exists from the first click. Close it before creating it again. The lines go just before <code>window -title …</code>, in both buttons' commands and in both <code>.mel</code> files:</p>
+      <div class="code"><button class="copy" type="button" data-copy="fix-rgb">Copy</button><pre id="fix-rgb">if (`window -exists assignRGB`)
+    deleteUI assignRGB;</pre></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Written 11 October 2026, for EasyTool 0.9.0. The same rules, in more detail, are in the repo: <a href="https://github.com/Jurakii/EasyTool/blob/main/docs/DEVELOPMENT.md">docs/DEVELOPMENT.md</a> (releasing EasyTool) and <a href="https://github.com/Jurakii/EasyTool/blob/main/docs/AUTHORING.md">docs/AUTHORING.md</a> (tools and feeds).</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var LAST_RELEASE = "0.9.0"; // EasyTool's latest release when this page was written
+  var TOOLS = {
+    "assign-rgb": { title: "Assign RGB & CMY", version: "1.1", zip: "AssignRGB.zip" },
+    "clean-sweep": { title: "Clean Sweep", version: "1.1", zip: "CleanSweep.zip" },
+    "grid-defaults": { title: "Grid Defaults", version: "1.0", zip: "DefaultGrid.zip" }
+  };
+  var ENTRY = { // the easytool project as it is in tools.json today
+    id: "easytool", category: "Tools", title: "Easy Tool", desc: "Install and update Maya shelf tools from a docked panel",
+    tags: ["Maya", "Utility"], media: { type: "icons", files: ["icons/EasyTool.png"] }
+  };
+
+  function $(id) { return document.getElementById(id); }
+  function outs(name) { return document.querySelectorAll('[data-out="' + name + '"]'); }
+  function setOut(name, text) { outs(name).forEach(function (el) { el.textContent = text; }); }
+
+  function versionKey(v) {
+    var nums = (String(v).match(/\d+/g) || []).map(Number);
+    while (nums.length < 3) nums.push(0);
+    return nums;
+  }
+  function compare(a, b) {
+    var x = versionKey(a), y = versionKey(b), n = Math.max(x.length, y.length);
+    for (var i = 0; i < n; i++) {
+      var d = (x[i] || 0) - (y[i] || 0);
+      if (d) return d > 0 ? 1 : -1;
+    }
+    return 0;
+  }
+  function validVersion(v) { return /^\d+(\.\d+){0,3}$/.test(v); }
+  function slugify(text) { return String(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "tool"; }
+  function pascal(text) {
+    var words = String(text).replace(/[^A-Za-z0-9]+/g, " ").trim().split(/\s+/).filter(Boolean);
+    return words.map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join("") || "MyTool";
+  }
+  function setStatus(el, text, kind) {
+    el.textContent = text;
+    el.className = "status" + (kind ? " " + kind : "");
+  }
+
+  // Remember the viewer's inputs in this browser (optional).
+  var STORE = "easytool-handbook:";
+  function remember(el) {
+    try { var saved = localStorage.getItem(STORE + el.id); if (saved !== null) { if (el.type === "checkbox") el.checked = saved === "1"; else el.value = saved; } } catch (e) {}
+    el.addEventListener("input", function () {
+      try { localStorage.setItem(STORE + el.id, el.type === "checkbox" ? (el.checked ? "1" : "0") : el.value); } catch (e) {}
+    });
+  }
+
+  // Update a tool
+  function renderUpdateTool() {
+    var tool = TOOLS[$("ut-tool").value];
+    var v = $("ut-version").value.trim();
+    setOut("ut-zip", tool.zip);
+    setOut("ut-zip-path", "scripts/" + tool.zip);
+    setOut("ut-id", $("ut-tool").value);
+    $("ut-line").textContent = '"version": "' + v + '",';
+    var status = $("ut-status");
+    if (!validVersion(v)) setStatus(status, "Use numbers and dots, like 1.2.", "bad");
+    else if (compare(v, tool.version) <= 0) setStatus(status, tool.title + " is " + tool.version + " in tools.json. Pick a higher number, or nobody gets the update.", "bad");
+    else setStatus(status, tool.title + " goes from " + tool.version + " to " + v + ". Anyone with " + tool.version + " installed will see Update.", "ok");
+  }
+
+  // Add a tool
+  function renderAddTool() {
+    var title = $("at-title-in").value.trim() || "My Tool";
+    var base = pascal(title);
+    var lang = $("at-lang").value;
+    var project = {
+      id: slugify(title),
+      category: "Scripts",
+      title: title,
+      version: $("at-version").value.trim() || "1.0",
+      desc: $("at-desc").value.trim(),
+      tags: ["Maya", lang, $("at-category").value],
+      enabled: true,
+      media: { type: "icons", files: ["icons/" + base + ".png"] },
+      links: [{ label: "Download", url: "scripts/" + base + ".zip" }]
+    };
+    setOut("at-zip-path", "scripts/" + base + ".zip");
+    setOut("at-icon-path", "icons/" + base + ".png");
+    $("at-json").textContent = JSON.stringify(project, null, 4) + ",";
+  }
+
+  // Release EasyTool
+  function renderRelease() {
+    var v = $("rel-version").value.trim();
+    var pre = $("rel-pre").checked;
+    var tag = "v" + v;
+    var zip = "EasyTool-" + v + ".zip";
+    var url = "https://github.com/Jurakii/EasyTool/releases/download/" + tag + "/" + zip;
+    setOut("rel-tag", tag);
+    setOut("rel-version", v);
+    setOut("rel-zip-name", zip);
+    setOut("rel-zip-path", "dist\\" + zip);
+    document.querySelectorAll("[data-out-pre]").forEach(function (el) {
+      el.textContent = pre ? 'Tick "Set as a pre-release" (it\'s still a beta).' : 'Leave "Set as a pre-release" unticked, and keep "Set as the latest release" ticked.';
+    });
+    $("rel-init").textContent = '__version__ = "' + v + '"';
+    $("rel-log").textContent = "## " + v + (pre ? " (beta)" : "") + "\n\n- What changed, in a line each.\n";
+    $("rel-git").textContent = "cd C:\\Users\\ncrou\\Documents\\EasyTool\ngit add -A\ngit commit -m \"EasyTool " + v + "\"\ngit tag " + tag + "\ngit push origin main\ngit push origin " + tag;
+    $("rel-lines").textContent = '"version": "' + v + '",\n"url": "' + url + '"';
+    var entry = {
+      id: ENTRY.id, category: ENTRY.category, title: ENTRY.title, version: v, desc: ENTRY.desc,
+      tags: ENTRY.tags, enabled: true, media: ENTRY.media,
+      links: [{ label: "Download", url: url }, { label: "Github", url: "https://github.com/Jurakii/EasyTool" }]
+    };
+    $("rel-entry").textContent = JSON.stringify(entry, null, 4) + ",";
+    var status = $("rel-status");
+    if (!validVersion(v)) setStatus(status, "Use numbers and dots, like 0.9.1.", "bad");
+    else if (compare(v, LAST_RELEASE) <= 0) setStatus(status, "The last release was " + LAST_RELEASE + " when this page was written. Pick a higher number, or installed copies won't offer it.", "bad");
+    else setStatus(status, "Installed copies of " + LAST_RELEASE + " will offer EasyTool " + v + " once step 8 is pushed.", "ok");
+  }
+
+  // Copy buttons: clipboard where allowed, otherwise select the text for Ctrl+C.
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-copy]");
+    if (!button) return;
+    var target = $(button.getAttribute("data-copy"));
+    var text = target.textContent;
+    function selectIt() {
+      var range = document.createRange();
+      range.selectNodeContents(target);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      flash(button, "Press Ctrl+C");
+    }
+    try {
+      navigator.clipboard.writeText(text).then(function () { flash(button, "Copied"); }, selectIt);
+    } catch (e) { selectIt(); }
+  });
+  function flash(button, text) {
+    var original = "Copy";
+    button.textContent = text;
+    clearTimeout(button._t);
+    button._t = setTimeout(function () { button.textContent = original; }, 1600);
+  }
+
+  ["ut-tool", "ut-version"].forEach(function (id) { remember($(id)); $(id).addEventListener("input", renderUpdateTool); $(id).addEventListener("change", renderUpdateTool); });
+  ["at-title-in", "at-version", "at-category", "at-lang", "at-desc"].forEach(function (id) { remember($(id)); $(id).addEventListener("input", renderAddTool); $(id).addEventListener("change", renderAddTool); });
+  ["rel-version", "rel-pre"].forEach(function (id) { remember($(id)); $(id).addEventListener("input", renderRelease); $(id).addEventListener("change", renderRelease); });
+  renderUpdateTool();
+  renderAddTool();
+  renderRelease();
+})();
+</script>
+
+</body></html>
