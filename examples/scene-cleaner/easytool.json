@@ -1,0 +1,16 @@
+{
+  "name": "Scene Cleaner",
+  "id": "scene-cleaner",
+  "version": "1.0.0",
+  "category": "Utility",
+  "description": "Delete unknown nodes and unused shading nodes in one click.",
+  "buttons": [
+    {
+      "label": "CLN",
+      "tooltip": "Scene Cleaner",
+      "icon": "sceneCleaner.png",
+      "language": "mel",
+      "command": "sceneCleaner;"
+    }
+  ]
+}

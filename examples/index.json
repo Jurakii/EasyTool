@@ -1,0 +1,6 @@
+{
+  "tools": [
+    { "path": "pivot-snap" },
+    { "path": "scene-cleaner" }
+  ]
+}

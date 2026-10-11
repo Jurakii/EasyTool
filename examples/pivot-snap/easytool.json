@@ -1,0 +1,33 @@
+{
+  "name": "Pivot Snap",
+  "id": "pivot-snap",
+  "version": "1.0.0",
+  "category": "Modeling",
+  "description": "Move pivots to the center, the bottom center or the world origin.",
+  "maya": "2022+",
+  "icons": "icons",
+  "scripts": "scripts",
+  "buttons": [
+    {
+      "label": "PIV",
+      "tooltip": "Pivot Snap: center",
+      "icon": "pivotSnap.png",
+      "language": "python",
+      "command": "import pivot_snap; pivot_snap.to_center()"
+    },
+    {
+      "label": "BTM",
+      "tooltip": "Pivot Snap: bottom center",
+      "icon": "pivotSnapBottom.png",
+      "language": "python",
+      "command": "import pivot_snap; pivot_snap.to_bottom()"
+    },
+    {
+      "label": "ORG",
+      "tooltip": "Pivot Snap: world origin",
+      "icon": "pivotSnapOrigin.png",
+      "language": "python",
+      "command": "import pivot_snap; pivot_snap.to_origin()"
+    }
+  ]
+}

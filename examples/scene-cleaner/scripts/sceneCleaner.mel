@@ -1,0 +1,16 @@
+// Scene Cleaner: delete unknown nodes and unused shading nodes.
+
+global proc sceneCleaner()
+{
+    int $removed = 0;
+    string $unknown[] = `ls -type unknown -type unknownDag -type unknownTransform`;
+    for ($node in $unknown) {
+        if (`objExists $node` && !`referenceQuery -isNodeReferenced $node`) {
+            lockNode -lock off $node;
+            delete $node;
+            $removed++;
+        }
+    }
+    MLdeleteUnused;
+    print ("Scene Cleaner: removed " + $removed + " unknown node(s) and unused shading nodes.\n");
+}
