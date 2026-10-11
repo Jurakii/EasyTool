@@ -1,11 +1,13 @@
 # EasyTool
 
-A panel docked inside Maya that installs, updates and uninstalls shelf tools (buttons, icons and scripts) from feeds, GitHub repos, `.zip` links and folders, and updates itself. Version 0.9.0 (beta); tested on Windows in Maya 2024 (PySide2) and 2025 (PySide6).
+A panel docked inside Maya that installs, updates and uninstalls shelf tools (buttons, icons and scripts) from feeds, GitHub repos, `.zip` links and folders, and updates itself. Version 0.9.2 (beta); tested on Windows in Maya 2024 (PySide2) and 2025 (PySide6).
 
 ## Layout
 
 - `easytool/core/`: all logic, with **no Qt imports**, so it can be tested with plain Python.
   - `sources.py`: feeds, GitHub, zips
+  - `manifest.py`: `easytool.json`, and the layouts recognized without one (drag-into-prefs, modules, packages, buttons made in code)
+  - `modules.py`: Maya modules (`.mod` parsing, rewriting, session paths)
   - `installer.py`: copying, conflicts, backups, rollback
   - `shelf.py`: Maya and file shelf backends
   - `selfupdate.py`: EasyTool updating itself

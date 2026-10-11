@@ -193,6 +193,7 @@ class EasyToolPanel(QtWidgets.QWidget):
         menu.addSeparator()
         for kind, text in FOLDERS:
             menu.addAction(f"Open {text.lower()} folder", lambda k=kind: self._open(self.ctx.folders.get(k)))
+        menu.addAction("Open modules folder", lambda: self._open(self.ctx.folders.modules))
         menu.addAction("Open EasyTool's data folder", lambda: self._open(self.ctx.settings.root))
         menu.addSeparator()
         menu.addAction("Use Maya's default folders", self._reset_folders)
@@ -655,7 +656,7 @@ class EasyToolPanel(QtWidgets.QWidget):
         box.setWindowTitle("Remove tools")
         box.setText(f"Remove {names}?")
         box.setInformativeText(
-            "Their shelf buttons, icons and scripts are deleted. "
+            "Their shelf buttons, icons, scripts and modules are deleted. "
             "Any of your own files they replaced are put back."
         )
         remove = box.addButton("Remove", QtWidgets.QMessageBox.AcceptRole)

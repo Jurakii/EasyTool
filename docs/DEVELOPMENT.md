@@ -4,7 +4,7 @@
 
 ```
 drag_into_maya.py   the installer users drag into Maya
-easytool/core/      logic with no Qt: manifests, sources and feeds, downloads, installer, shelves, self-update
+easytool/core/      logic with no Qt: manifests, sources and feeds, downloads, installer, shelves, Maya modules, self-update
 easytool/ui/        the panel (Warm Graphite theme), dialogs and the Maya dock
 easytool/resources/ icons, stylesheet images and the bundled fonts
 examples/           two sample tools (Python and MEL) and an index.json
@@ -69,3 +69,8 @@ These were all found by running EasyTool inside Maya 2024 and 2025. Keep them in
 - **Maya builds a shelf's buttons only when its tab is first opened.** `MayaShelfBackend` calls `loadShelf <index>` before reading, editing or saving a shelf; otherwise saving an unopened shelf would write it out empty.
 - **Qt 5 (Maya 2024) reads stylesheet `font-weight` numbers on its own scale,** where 600 is Bold and 700 is Black. The theme uses the `bold` keyword, and names the "Archivo SemiBold" family directly, instead of numbers.
 - **A Maya started from a hidden console stays hidden.** The in-Maya tests show its main window themselves.
+- **Maya reads `.mod` files only when it starts.** `MayaShelfBackend.load_module` adds a new module's folders to the running session itself, using MEL's `putenv` and then `rehash`. Maya's own `getenv` doesn't see changes made through `os.environ`; `loadPlugin` happens to, MEL's script path doesn't.
+- **Modules, as checked in Maya 2024:**
+  - `maya/<version>/modules` comes before the shared `maya/modules` on `MAYA_MODULE_PATH`.
+  - When two `.mod` files name the same module, Maya loads only the first one it finds, so a module EasyTool installs wins over a hand-installed copy with the same name.
+  - A relative module path (`./name`) is relative to the `.mod` file.

@@ -5,10 +5,10 @@ import zipfile
 
 import json
 
-from helpers import EXAMPLES, FakeHttp, TempDirTest, make_legacy_tool, zip_folder
+from helpers import EXAMPLES, FakeHttp, TempDirTest, make_legacy_tool, make_module_tool, zip_folder
 
 from easytool.core.models import Location, ToolInfo
-from easytool.core.sources import Resolver, Source, detect_kind, make_source, parse_github, safe_extract
+from easytool.core.sources import Resolver, Source, detect_kind, make_source, parse_github, safe_extract, single_child
 
 API = "https://api.github.com/repos"
 RAW = "https://raw.githubusercontent.com"
@@ -217,6 +217,53 @@ class ResolverTest(TempDirTest):
         self.assertEqual(len(results[0].tools), 2)
         self.assertEqual(results[0].tools[0].source_id, good.id)
         self.assertTrue(results[1].errors)
+
+
+class LayoutSourcesTest(TempDirTest):
+    def resolver(self, http=None):
+        return Resolver(self.path("cache"), http or FakeHttp())
+
+    def test_unwraps_nested_top_folders_but_not_tool_folders(self):
+        self.write("a/Tool-1.0/Tool/Tool.mod", "+ Tool 1.0 .")
+        self.assertEqual(single_child(self.path("a")), self.path("a", "Tool-1.0", "Tool"))
+        self.write("b/scripts/tool.mel")
+        self.assertEqual(single_child(self.path("b")), self.path("b"))
+        self.write("c/wrap/my_tool/__init__.py")
+        self.assertEqual(single_child(self.path("c")), self.path("c", "wrap"))
+
+    def test_zip_of_a_module_in_wrapper_folders(self):
+        url = "https://example.com/dl/Build-1.0.zip"
+        make_module_tool(self.path("src", "Build"))
+        http = FakeHttp(files={url: zip_folder(self.path("src"), top="Build-1.0")})
+        [tool] = self.resolver(http).list_tools(make_source(url))
+        self.assertEqual((tool.id, tool.module, tool.version, len(tool.buttons)), ("build-1-0", True, "1.0", 1))
+
+    def test_zip_of_just_a_python_package(self):
+        url = "https://example.com/dl/my_tool.zip"
+        self.write("src/my_tool/__init__.py")
+        self.write("src/my_tool/ui.py")
+        http = FakeHttp(files={url: zip_folder(self.path("src"), top="")})
+        [tool] = self.resolver(http).list_tools(make_source(url))
+        self.assertEqual(tool.script_files, ["my_tool"])
+
+    def test_folder_of_modules(self):
+        make_module_tool(self.path("share", "Build"))
+        self.write("share/Other/other.mod", "+ other 3.0 .")
+        self.write("share/Other/scripts/other.py")
+        build, other = self.resolver().list_tools(make_source(self.path("share")))
+        self.assertEqual((build.name, other.name, other.version), ("Build", "Other", "3.0"))
+        self.assertEqual(other.location.path, self.path("share", "Other"))
+        [one] = self.resolver().list_tools(make_source(self.path("share", "Build")))  # a module is one tool
+        self.assertEqual(one.mod_files, ["build_modifier.mod"])
+
+    def test_github_subfolder_is_relative_to_the_repo(self):
+        self.write("repo/tools/pivot-snap/easytool.json", json.dumps({"name": "Pivot Snap"}))
+        self.write("repo/tools/pivot-snap/scripts/pivot_snap.py")
+        url = f"{API}/studio/repo/zipball/v1"
+        http = FakeHttp(files={url: zip_folder(self.path("repo"))})
+        tool = ToolInfo(id="pivot-snap", name="Pivot Snap", location=Location("github", repo="studio/repo", ref="v1", subdir="tools/pivot-snap"))
+        folder = self.resolver(http).fetch_payload(tool)
+        self.assertTrue(os.path.isfile(os.path.join(folder, "easytool.json")))
 
 
 class SafeExtractTest(TempDirTest):

@@ -38,7 +38,7 @@ When a new version of EasyTool is out, a bar at the top of the panel says so. Pr
 
 ## Where things go
 
-- **Tools:** each tool's files go in Maya's own folders for that version (`Documents/maya/<version>/prefs/shelves`, `prefs/icons` and `scripts`).
+- **Tools:** each tool's files go in Maya's own folders for that version (`Documents/maya/<version>/prefs/shelves`, `prefs/icons` and `scripts`). Tools that are Maya modules (they come with a `.mod` file, or with plug-ins) go in `Documents/maya/<version>/modules`, as one folder each. *⋯ → Open modules folder* shows them.
 - **EasyTool's own data:** its settings, download cache, backups and installed-tool lists (one per Maya version) live in `Documents/maya/easytool/`.
 
 ## Removing EasyTool

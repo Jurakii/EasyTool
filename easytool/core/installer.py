@@ -1,5 +1,8 @@
 """Copy a tool's icons, scripts and shelf files into Maya's folders and add its shelf buttons.
 
+A tool that is a Maya module is copied whole into Maya's modules folder instead, with its .mod
+file (see modules.py), and its buttons point at the icons inside it.
+
 Anything an install would overwrite is first moved to a staging folder, so a cancelled or
 failed install puts everything back. When the install succeeds, the user's own files that were
 replaced go to a backup folder (and come back on uninstall); EasyTool's own older files are dropped.
@@ -7,6 +10,7 @@ replaced go to a backup folder (and come back on uninstall); EasyTool's own olde
 from __future__ import annotations
 
 import datetime
+import errno
 import filecmp
 import os
 import posixpath
@@ -16,7 +20,8 @@ import sys
 import uuid
 from dataclasses import dataclass, replace
 
-from .manifest import IMAGE_EXTS, read_tool
+from .manifest import IMAGE_EXTS, find_images, read_tool
+from .modules import folder_name, module_text, read_text, rewrite_mod
 from .registry import InstalledTool
 from .shelf import read_shelf_file, shelf_name_from_file, tool_tag
 
@@ -123,6 +128,40 @@ def _key(path: str) -> str:
     return os.path.normcase(os.path.normpath(path))
 
 
+def _other_drive(exc: OSError) -> bool:
+    return exc.errno == errno.EXDEV or getattr(exc, "winerror", None) == 17  # ERROR_NOT_SAME_DEVICE
+
+
+def module_ignore(root: str):
+    """What not to copy from a module's folder: its .mod files (EasyTool writes its own) and dot files."""
+    base = shutil.ignore_patterns(*IGNORED)
+
+    def ignore(folder, names):
+        skipped = set(base(folder, names))
+        if _key(folder) == _key(root):
+            skipped.update(n for n in names if n.startswith(".") or n.lower().endswith(".mod"))
+        return skipped
+    return ignore
+
+
+def _module_lines(tool) -> list:
+    """For a .mod file EasyTool writes: where the tool keeps scripts and icons, if not in the usual folders."""
+    lines = []
+    if tool.scripts_dir and tool.scripts_dir != "scripts":
+        lines.append(f"scripts: {tool.scripts_dir}")
+    elif not tool.scripts_dir and tool.script_files:
+        lines.append("scripts: .")
+    if tool.icons_dir and tool.icons_dir != "icons":
+        lines.append(f"icons: {tool.icons_dir}")
+    return lines
+
+
+def module_icons(folder: str) -> dict:
+    """The images in an installed module by file name, as full paths for its buttons to use.
+    Maya only finds a module's icons by name after a restart."""
+    return {name: path.replace("\\", "/") for name, path in find_images(folder).items()}
+
+
 class _Session:
     def __init__(self, staging: str):
         self.staging = staging
@@ -132,13 +171,28 @@ class _Session:
     def move_aside(self, path: str, owned: bool, kind: str) -> None:
         os.makedirs(self.staging, exist_ok=True)
         staged = os.path.join(self.staging, uuid.uuid4().hex)
-        shutil.move(path, staged)
+        try:
+            os.rename(path, staged)
+        except OSError as exc:
+            # Copying and deleting instead could leave half a folder behind when a file in it is in use.
+            if not _other_drive(exc):
+                raise InstallError(f"couldn't move {path} out of the way ({exc.strerror or exc}). If a loaded "
+                                   "plug-in uses it, unload the plug-in or restart Maya, then try again") from exc
+            shutil.move(path, staged)
         self.set_aside.append((path, staged, owned, kind))
 
-    def place(self, src: str, dest: str) -> None:
+    def stage_text(self, text: str) -> str:
+        """Write a file EasyTool makes, such as a .mod file, to the staging folder, ready to place."""
+        os.makedirs(self.staging, exist_ok=True)
+        path = os.path.join(self.staging, uuid.uuid4().hex)
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+        return path
+
+    def place(self, src: str, dest: str, ignore=None) -> None:
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         if os.path.isdir(src):
-            shutil.copytree(src, dest, ignore=shutil.ignore_patterns(*IGNORED))
+            shutil.copytree(src, dest, ignore=ignore or shutil.ignore_patterns(*IGNORED))
         else:
             shutil.copy2(src, dest)
         self.created.append(dest)
@@ -184,24 +238,32 @@ class Installer:
         ask = ask or (lambda conflict: Decision(REPLACE))
         say = progress or (lambda message: None)
         tool = merge_shelf_files(effective_tool(tool, payload), payload)
-        icons_src = os.path.join(payload, tool.icons_dir) if tool.icons_dir else ""
-        scripts_src = os.path.join(payload, tool.scripts_dir) if tool.scripts_dir else ""
+        icons_src = os.path.join(payload, tool.icons_dir) if tool.icons_dir and not tool.module else ""
+        scripts_src = os.path.join(payload, tool.scripts_dir) if tool.scripts_dir and not tool.module else ""
         scripts = [(name, os.path.join(scripts_src, name)) for name in _entries(scripts_src)]
-        scripts += [(posixpath.basename(rel), os.path.join(payload, *rel.split("/"))) for rel in tool.script_files]
+        if not tool.module:  # a module's scripts stay in its folder
+            scripts += [(posixpath.basename(rel), os.path.join(payload, *rel.split("/"))) for rel in tool.script_files]
         script_names = [name for name, _src in scripts]
-        if not (tool.buttons or tool.shelf_files or _entries(icons_src) or scripts):
+        if not (tool.module or tool.buttons or tool.shelf_files or _entries(icons_src) or scripts):
             raise InstallError(f"{tool.name} has no buttons, shelves, icons or scripts to install.")
 
         previous = self.registry.get(tool.id)
         owned = {_key(p) for p in previous.files} if previous else set()
         session = _Session(os.path.join(self.backup_root, ".staging", uuid.uuid4().hex))
         tag = tool_tag(tool.id)
+        module_dirs, mod_files = [], []
         try:
-            say(f"Copying icons for {tool.name}")
-            icon_map = self._copy_icons(tool, icons_src, owned, session, ask)
-            say(f"Copying scripts for {tool.name}")
-            for name, src in scripts:
-                self._place(tool, "script", name, src, os.path.join(self.folders.scripts, name), owned, session, ask)
+            if tool.module:
+                say(f"Copying the {tool.name} module")
+                module_dir, mod_files = self._copy_module(tool, payload, owned, session, ask)
+                module_dirs.append(module_dir)
+                icon_map = module_icons(module_dir)
+            else:
+                say(f"Copying icons for {tool.name}")
+                icon_map = self._copy_icons(tool, icons_src, owned, session, ask)
+                say(f"Copying scripts for {tool.name}")
+                for name, src in scripts:
+                    self._place(tool, "script", name, src, os.path.join(self.folders.scripts, name), owned, session, ask)
             shelf_files = self._copy_shelf_files(tool, payload, owned, session, ask)
 
             if previous:
@@ -226,6 +288,8 @@ class Installer:
                     self.backend.remove_shelf(name)
             for path in shelf_files:
                 self.backend.load_shelf_file(path)
+            for path in mod_files:
+                self.backend.load_module(path)
         except BaseException:
             session.rollback()
             raise
@@ -249,8 +313,27 @@ class Installer:
             installed_at=datetime.datetime.now().isoformat(timespec="seconds"),
         )
         self.registry.put(rec)
-        self._refresh(script_names)
+        self._refresh(script_names, module_dirs)
         return rec
+
+    def _copy_module(self, tool, payload: str, owned: set, session: _Session, ask):
+        """Copy the tool's folder into Maya's modules folder and put its .mod file next to it, pointing at it.
+        Returns the folder and the .mod files that are now in place."""
+        name = folder_name(tool.mod_files, tool.id)
+        folder = os.path.join(self.folders.modules, name)
+        if not self._place(tool, "module", name, payload, folder, owned, session, ask, ignore=module_ignore(payload)):
+            return folder, []  # skipped: the folder already there stays, with whatever .mod file uses it
+        if tool.mod_files:
+            texts = [(posixpath.basename(rel), rewrite_mod(read_text(os.path.join(payload, *rel.split("/"))), payload, name))
+                     for rel in tool.mod_files]
+        else:
+            texts = [(f"{name}.mod", module_text(tool.id, tool.version, name, _module_lines(tool)))]
+        placed = []
+        for file_name, text in texts:
+            src, dest = session.stage_text(text), os.path.join(self.folders.modules, file_name)
+            if self._place(tool, "module", file_name, src, dest, owned, session, ask) or _same_file(src, dest):
+                placed.append(dest)
+        return folder, placed
 
     def _copy_icons(self, tool, src_dir: str, owned: set, session: _Session, ask) -> dict:
         names = [n for n in _entries(src_dir)
@@ -293,7 +376,7 @@ class Installer:
             n += 1
         return f"{base}_{n}"
 
-    def _place(self, tool, kind: str, name: str, src: str, dest: str, owned: set, session: _Session, ask) -> bool:
+    def _place(self, tool, kind: str, name: str, src: str, dest: str, owned: set, session: _Session, ask, ignore=None) -> bool:
         if os.path.lexists(dest):
             if _key(dest) in owned:
                 session.move_aside(dest, owned=True, kind=kind)
@@ -306,7 +389,7 @@ class Installer:
                 if action != REPLACE:
                     return False
                 session.move_aside(dest, owned=False, kind=kind)
-        session.place(src, dest)
+        session.place(src, dest, ignore)
         return True
 
     def _copy_shelf_files(self, tool, payload: str, owned: set, session: _Session, ask) -> list:
@@ -321,16 +404,19 @@ class Installer:
                 placed.append(dest)
         return placed
 
-    def _refresh(self, script_names) -> None:
+    def _refresh(self, script_names, module_dirs=()) -> None:
         """Make Maya pick up new scripts, and forget old copies of updated Python modules."""
         self.backend.refresh_scripts()
         roots = {os.path.splitext(n)[0] for n in script_names}
         scripts_dir = _key(os.path.realpath(self.folders.scripts))
+        module_dirs = tuple(_key(d) + os.sep for d in module_dirs)
         for name, module in list(sys.modules.items()):
-            if name.split(".")[0] not in roots:
-                continue
             path = getattr(module, "__file__", None) or ""
-            if path and _key(os.path.realpath(path)).startswith(scripts_dir):
+            if not path:
+                continue
+            if module_dirs and _key(path).startswith(module_dirs):
+                del sys.modules[name]
+            elif name.split(".")[0] in roots and _key(os.path.realpath(path)).startswith(scripts_dir):
                 del sys.modules[name]
 
     # Uninstall -----------------------------------------------------------
@@ -345,7 +431,11 @@ class Installer:
         for name in rec.shelf_files:
             self.backend.remove_shelf(name)
         for path in rec.files:
-            _delete(path)
+            try:
+                _delete(path)
+            except OSError:
+                pass  # reported below
+        left = [path for path in rec.files if os.path.lexists(path)]
         shelves_dir = _key(self.folders.shelves)
         for original, backup in rec.backups.items():
             if os.path.lexists(backup) and not os.path.lexists(original):
@@ -353,6 +443,10 @@ class Installer:
                 shutil.move(backup, original)
                 if original.endswith(".mel") and _key(os.path.dirname(original)) == shelves_dir:
                     self.backend.load_shelf_file(original)
-        self.registry.remove(tool_id)
         self.backend.refresh_scripts()
+        if left:  # keep the record, so removing it again finishes the job
+            self.registry.put(replace(rec, shelf="", shelf_files=[], files=left))
+            raise InstallError("some of its files are in use, often by a loaded plug-in, and couldn't be deleted. "
+                               "Unload the plug-in or restart Maya, then remove it again")
+        self.registry.remove(tool_id)
         return rec

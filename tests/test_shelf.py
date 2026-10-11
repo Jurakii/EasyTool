@@ -1,9 +1,11 @@
 import unittest
 
-from helpers import LEGACY_SHELF, TempDirTest
+from helpers import LEGACY_SHELF, MODULE_SHELF_PY, TempDirTest
 
 from easytool.core.models import ButtonSpec
-from easytool.core.shelf import FileShelfBackend, button_mel, buttons_from_shelf_text, mel_string, tool_tag
+from easytool.core.shelf import (
+    FileShelfBackend, button_mel, buttons_from_python_text, buttons_from_shelf_text, mel_string, tool_tag,
+)
 
 USER_BLOCK = """    shelfButton
         -label "Mine"
@@ -40,6 +42,48 @@ class ShelfFileTest(unittest.TestCase):
         buttons = buttons_from_shelf_text(LEGACY_SHELF)
         text = "\n".join(button_mel(b, tool_tag("x")) for b in buttons)
         self.assertEqual(buttons_from_shelf_text(text), buttons)
+
+
+class PythonButtonsTest(unittest.TestCase):
+    def test_button_made_in_code(self):
+        [button] = buttons_from_python_text(MODULE_SHELF_PY, images=["buildModifier.png"])
+        self.assertEqual(button, ButtonSpec(
+            label="Build",
+            tooltip="Build: click to apply to the selected meshes, double-click for options",
+            icon="buildModifier.png",  # image=_icon() can't be read, but the file names one of the tool's images
+            command="import build_modifier.shelf\nbuild_modifier.shelf.on_click()",
+            language="python",
+            double_click="import build_modifier.shelf\nbuild_modifier.shelf.on_double_click()",
+            overlay="Build",
+        ))
+        self.assertEqual(buttons_from_python_text(MODULE_SHELF_PY)[0].icon, "")
+
+    def test_short_flags_constants_and_defaults(self):
+        text = (
+            "from maya import cmds as mc\n"
+            "PKG = 'tool'\n"
+            "mc.shelfButton(l='T', c='import ' + PKG + '; ' + PKG + f'.run()', i='icons/tool.png')\n"
+            "mc.shelfButton(l='M', c='toolMel;', i1='mine.png', stp='mel')\n"
+            "shelfButton(c=\"print(1)\")\n"
+        )
+        first, second, third = buttons_from_python_text(text, images=["tool.png"])
+        self.assertEqual((first.label, first.command, first.icon, first.language), ("T", "import tool; tool.run()", "tool.png", "mel"))
+        self.assertEqual((second.icon, second.language), ("mine.png", "mel"))
+        self.assertEqual(third.command, "print(1)")
+
+    def test_skips_what_it_cannot_read(self):
+        text = (
+            "import os\n"
+            "from maya import cmds\n"
+            "root = os.path.dirname(__file__)\n"
+            "cmds.shelfButton(command='import sys; sys.path.append(%r)' % root)\n"  # built at run time
+            "cmds.shelfButton(command=make_command())\n"
+            "cmds.shelfButton(command='x()', sourceType=LANG)\n"  # unknown language
+            "cmds.shelfButton('b', edit=True, command='edited()')\n"
+            "cmds.shelfButton('b', q=1, c=1)\n"
+        )
+        self.assertEqual(buttons_from_python_text(text), [])
+        self.assertEqual(buttons_from_python_text("def broken(:\n"), [])
 
 
 class FileBackendTest(TempDirTest):

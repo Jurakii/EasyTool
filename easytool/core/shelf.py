@@ -8,11 +8,14 @@ Every button EasyTool creates carries docTag "easytool:<tool id>" so it can be f
 """
 from __future__ import annotations
 
+import ast
 import importlib
 import os
 import re
+import sys
 
 from .models import LANGUAGES, ButtonSpec
+from .modules import session_paths
 
 TAG_PREFIX = "easytool:"
 DEFAULT_ICON = "commandButton.png"
@@ -138,6 +141,107 @@ def read_shelf_file(path: str) -> list:
     return buttons_from_shelf_text(text)
 
 
+PY_FLAGS = {  # shelfButton flags, long and short, and the ButtonSpec field each one fills
+    "label": "label", "l": "label",
+    "annotation": "tooltip", "ann": "tooltip",
+    "image": "icon", "i": "icon", "image1": "icon", "i1": "icon",
+    "command": "command", "c": "command",
+    "sourceType": "language", "stp": "language",
+    "doubleClickCommand": "double_click", "dcc": "double_click",
+    "imageOverlayLabel": "overlay", "iol": "overlay",
+}
+NOT_CREATING = ("query", "q", "edit", "e", "exists", "ex")
+
+
+def _literal(node, names: dict):
+    """The string a node always evaluates to: a literal, a name bound to one, or + of those. Else None."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Name):
+        return names.get(node.id)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left, right = _literal(node.left, names), _literal(node.right, names)
+        return None if left is None or right is None else left + right
+    if isinstance(node, ast.JoinedStr) and all(isinstance(v, ast.Constant) for v in node.values):
+        return "".join(v.value for v in node.values)
+    return None
+
+
+def _callee(func) -> str:
+    return func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
+
+
+def _shipped(nodes, names: dict, shipped: dict) -> str:
+    """The first string among nodes that names one of the tool's own images."""
+    for node in nodes:
+        text = _literal(node, names) if isinstance(node, (ast.Constant, ast.Name)) else None
+        if text:
+            found = shipped.get(os.path.basename(text.replace("\\", "/")).lower())
+            if found:
+                return found
+    return ""
+
+
+def buttons_from_python_text(text: str, images=()) -> list:
+    """The shelf buttons a Python file makes with cmds.shelfButton(...), read without running it.
+
+    Many tools add their button from code instead of shipping a shelf file. Only flags that are
+    plain strings, or module-level names bound to them, are read; a call whose command isn't one is
+    skipped. When the image can't be read, the button takes one of `images` (the tool's own image
+    files) that the call, or else the file, names.
+    """
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return []
+    names = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            value = _literal(node.value, names)
+            for target in node.targets:
+                if isinstance(target, ast.Name) and value is not None:
+                    names[target.id] = value
+    shipped = {name.lower(): name for name in images}
+    calls = sorted(
+        (n for n in ast.walk(tree) if isinstance(n, ast.Call) and _callee(n.func) == "shelfButton"),
+        key=lambda n: (n.lineno, n.col_offset),
+    )
+    buttons = []
+    for call in calls:
+        keywords = {kw.arg: kw.value for kw in call.keywords if kw.arg}
+        if any(k in keywords and not (isinstance(keywords[k], ast.Constant) and not keywords[k].value) for k in NOT_CREATING):
+            continue
+        flags, unread = {}, set()
+        for arg, value in keywords.items():
+            name = PY_FLAGS.get(arg)
+            if name and name not in flags:
+                found = _literal(value, names)
+                if found is None:
+                    unread.add(name)
+                else:
+                    flags[name] = found
+        if not flags.get("command") or "language" in unread and "language" not in flags:
+            continue
+        icon = flags.get("icon", "")
+        if icon:
+            icon = shipped.get(os.path.basename(icon.replace("\\", "/")).lower(), icon)
+        elif "icon" in unread:
+            image_args = [keywords[k] for k in ("image", "i", "image1", "i1") if k in keywords]
+            icon = (_shipped([n for arg in image_args for n in ast.walk(arg)], names, shipped)
+                    or _shipped(ast.walk(tree), names, shipped))
+        language = flags.get("language", "mel").lower()  # Maya's own default
+        buttons.append(ButtonSpec(
+            label=flags.get("label", ""),
+            tooltip=flags.get("tooltip", ""),
+            icon=icon,
+            command=flags["command"],
+            language=language if language in LANGUAGES else "mel",
+            double_click=flags.get("double_click", ""),
+            overlay=flags.get("overlay", ""),
+        ))
+    return buttons
+
+
 class FileShelfBackend:
     """Edits shelf_<name>.mel files directly. Used when Maya isn't running."""
 
@@ -199,8 +303,15 @@ class FileShelfBackend:
     def remove_shelf(self, name: str) -> None:
         pass
 
+    def load_module(self, mod_path: str) -> None:
+        pass
+
     def refresh_scripts(self) -> None:
         importlib.invalidate_caches()
+
+
+def _same_path(a: str, b: str) -> bool:
+    return os.path.normcase(os.path.normpath(a)) == os.path.normcase(os.path.normpath(b))
 
 
 class MayaShelfBackend:
@@ -302,6 +413,21 @@ class MayaShelfBackend:
     def remove_shelf(self, name: str) -> None:
         if self.cmds.shelfLayout(name, exists=True):
             self.cmds.deleteUI(name, layout=True)
+
+    def load_module(self, mod_path: str) -> None:
+        """Maya reads .mod files only when it starts, so add a new module's folders to this session.
+
+        Through MEL's putenv: Maya's own getenv doesn't see changes made to os.environ.
+        """
+        for var, value, append in session_paths(mod_path, str(self.cmds.about(version=True))):
+            value = self._fwd(value)
+            if var == "PYTHONPATH" and not any(_same_path(p, value) for p in sys.path if p):
+                sys.path.append(os.path.normpath(value))
+            parts = [p for p in (self.mel.eval(f"getenv {mel_string(var)}") or "").split(os.pathsep) if p]
+            if append and any(_same_path(p, value) for p in parts):
+                continue
+            joined = os.pathsep.join(parts + [value]) if append else value
+            self.mel.eval(f"putenv {mel_string(var)} {mel_string(joined)}")
 
     def refresh_scripts(self) -> None:
         importlib.invalidate_caches()

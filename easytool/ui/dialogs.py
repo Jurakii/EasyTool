@@ -10,7 +10,7 @@ from . import icons
 from .theme import C, stylesheet
 from .widgets import ElidedLabel, button, label, set_prop, tool_button
 
-WHERE = {"icon": "icon folder", "script": "scripts folder", "shelf": "shelf folder"}
+WHERE = {"icon": "icon folder", "script": "scripts folder", "shelf": "shelf folder", "module": "modules folder"}
 
 
 class _Dialog(QtWidgets.QDialog):

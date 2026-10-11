@@ -1,7 +1,8 @@
+import json
 import os
 import unittest
 
-from helpers import EXAMPLES, TempDirTest, make_legacy_tool
+from helpers import EXAMPLES, TempDirTest, make_legacy_tool, make_module_tool
 
 from easytool.core.manifest import ManifestError, load_manifest, parse_manifest, read_tool, scan_folder
 from easytool.core.models import is_newer, slugify, version_key
@@ -74,6 +75,50 @@ class FolderTest(TempDirTest):
     def test_empty_folder_is_not_a_tool(self):
         os.makedirs(self.path("empty"))
         self.assertIsNone(read_tool(self.path("empty")))
+
+
+class LayoutTest(TempDirTest):
+    def test_maya_module(self):
+        tool = scan_folder(make_module_tool(self.path("Build")))
+        self.assertTrue(tool.module)
+        self.assertEqual((tool.mod_files, tool.version), (["build_modifier.mod"], "1.0"))
+        [button] = tool.buttons  # from scripts/build_modifier/shelf.py; the one in tests/ is left out
+        self.assertEqual((button.label, button.icon, button.language), ("Build", "buildModifier.png", "python"))
+        self.assertTrue(tool.preview_icon.endswith("buildModifier.png"))
+
+    def test_plug_ins_without_a_mod_file_are_a_module_too(self):
+        self.write("Tool/plug-ins/toolNode.py")
+        self.write("Tool/scripts/tool.py")
+        tool = scan_folder(self.path("Tool"))
+        self.assertEqual((tool.module, tool.mod_files), (True, []))
+
+    def test_manifest_with_a_mod_file(self):
+        make_module_tool(self.path("Build"))
+        self.write("Build/easytool.json", json.dumps({"name": "Build", "version": "2.0"}))
+        tool = load_manifest(self.path("Build"))
+        self.assertEqual((tool.module, tool.version, tool.buttons), (True, "2.0", []))
+
+    def test_python_package_at_the_top(self):
+        self.write("Tool/my_tool/__init__.py")
+        self.write("Tool/my_tool/ui.py")
+        self.write("Tool/tests/__init__.py")
+        self.write("Tool/easytool/__init__.py")
+        self.write("Tool/install.py", 'cmds.shelfButton(label="MT", command="import my_tool; my_tool.show()", sourceType="python")')
+        self.write("Tool/icons/myTool.png")
+        self.write("Tool/icons/myTool_150.png")
+        tool = scan_folder(self.path("Tool"))
+        self.assertEqual(tool.script_files, ["my_tool"])
+        [button] = tool.buttons  # from the installer, with the tool's only icon
+        self.assertEqual((button.command, button.icon), ("import my_tool; my_tool.show()", "myTool.png"))
+
+    def test_mayas_own_prefs_layout(self):
+        self.write("Tool/scripts/tool.mel")
+        self.write("Tool/prefs/icons/tool.png")
+        self.write("Tool/prefs/shelves/shelf_Tool.mel", "global proc shelf_Tool() {}")
+        tool = scan_folder(self.path("Tool"))
+        self.assertEqual((tool.icons_dir, tool.scripts_dir), ("prefs/icons", "scripts"))
+        self.assertEqual(tool.shelf_files, ["prefs/shelves/shelf_Tool.mel"])
+        self.assertFalse(tool.module)
 
 
 class VersionTest(unittest.TestCase):

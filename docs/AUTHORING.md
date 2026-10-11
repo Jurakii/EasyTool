@@ -1,6 +1,6 @@
 # Making your tools installable
 
-EasyTool installs a tool from a folder or `.zip` that holds shelf buttons, icons and scripts. Users get tools from sources, which can be a GitHub repo, a `.zip` link, a feed that lists many tools, or a local or network folder.
+EasyTool installs a tool from a folder or `.zip` that holds shelf buttons, icons and scripts, or a Maya module. Users get tools from sources, which can be a GitHub repo, a `.zip` link, a feed that lists many tools, or a local or network folder.
 
 ## The simplest case: zips you already have
 
@@ -16,6 +16,29 @@ MyTool.zip
 - **Buttons:** the buttons in `shelf_*.mel` go on the user's chosen shelf, with their labels, icons and commands kept. Set `"ownShelf": true` (in the feed entry or an `easytool.json`) to install the file as its own shelf tab instead.
 - **Scripts:** a `scripts/` folder works as well as loose files at the top of the zip. `userSetup` files and installer scripts (`install*`, `drag*`) are never copied.
 - **Icons:** ship `name.png` plus `name_150.png` and `name_200.png`, so icons stay sharp on scaled displays.
+
+## Other layouts that work as they are
+
+EasyTool also recognizes these, with no extra files:
+
+| Layout | What EasyTool does |
+| --- | --- |
+| **Maya module:** a `.mod` file at the top, next to `scripts/`, `plug-ins/` and `icons/` | Copies the whole folder to `maya/<version>/modules/` and writes the `.mod` file next to it, pointing at the copy. The tool works in the open Maya session straight away; from the next start, Maya loads it as a module. |
+| **Plug-ins without a `.mod` file:** a `plug-ins/` folder | Installed as a module too, with a `.mod` file EasyTool writes. This keeps the tool's folders together, so code that finds its plug-ins or icons relative to itself keeps working. |
+| **A Python package at the top:** `my_tool/__init__.py` | Copied to the scripts folder as a package. Folders named `test*` are left out. |
+| **Maya's own layout:** `scripts/`, `prefs/icons/`, `prefs/shelves/` | Treated like `scripts/`, `icons/` and `shelves/`. |
+| **Wrapper folders:** `MyTool-1.0/MyTool/…` | EasyTool steps into a few nested top folders, but never into `scripts/`, `icons/` and the like, or into a Python package. |
+
+**Buttons made in code.** Many tools add their shelf button from Python, in an installer or a `shelf.py`, instead of shipping a shelf file. When a tool has no shelf file, EasyTool reads (never runs) its Python files for `cmds.shelfButton(...)` calls and makes the same buttons.
+- It reads flags that are plain strings, or names set to plain strings at the top of the file, so `command=CLICK_COMMAND` works. A button whose command is built at run time is skipped.
+- When the image comes from a function (`image=_icon()`), the button gets the tool's icon that the file names, or the tool's only icon.
+- Files in `tests/`, `docs/` and `examples/` folders are left out.
+
+**Modules in more detail:**
+- **Paths inside the `.mod` file** keep their place. A module whose path is `.` points at the copy, and `./platforms/2024` points at the same folder inside it. A path from the author's own machine (`C:/dev/MyTool`) points at the tool's folder of that name, if it has one.
+- **Version:** the module's version is the tool's version when nothing else gives one.
+- **Buttons** point at the module's own icons by full path, because Maya only finds a module's icons by name after a restart.
+- **Updating a module whose compiled plug-in is loaded** stops with a message to unload the plug-in or restart Maya, because Windows can't move files that are in use. Uninstalling one keeps its record until the files can be deleted.
 
 ## easytool.json (optional)
 
@@ -52,6 +75,8 @@ For more control, put an `easytool.json` at the top of the tool's folder or zip:
 | `buttons` | Shelf buttons. `language` is `python` or `mel`. Also `doubleClick` (a second command) and `overlay` (text drawn over the icon). A button without an icon gets Maya's default icon with its label on top. |
 | `shelf` | Path, or list of paths, to `shelf_*.mel` files whose buttons are added too. |
 | `ownShelf` | `true` installs those shelf files as their own tabs instead. |
+
+A tool with an `easytool.json` and a `.mod` file (or a `plug-ins/` folder) still installs as a module. Its buttons come only from `buttons` and `shelf`, never from its code.
 
 See `examples/` for a Python tool and a MEL tool.
 

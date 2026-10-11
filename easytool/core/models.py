@@ -71,6 +71,8 @@ class ToolInfo:
     script_files: list = field(default_factory=list)  # loose scripts, e.g. .mel files at the zip root
     shelf_files: list = field(default_factory=list)
     own_shelf: bool = False  # install shelf files as their own tabs instead of adding their buttons
+    module: bool = False  # install the whole folder as a Maya module (it has a .mod file or plug-ins)
+    mod_files: list = field(default_factory=list)  # the tool's own .mod files, at the top of its folder
     buttons: list = field(default_factory=list)
     has_manifest: bool = True
     location: Location = field(default_factory=Location)

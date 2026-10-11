@@ -125,3 +125,58 @@ def make_legacy_tool(folder):
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(text)
     return folder
+
+
+# Trimmed from a real module (Build modifier): its button is made in code, not in a shelf file.
+MODULE_SHELF_PY = r'''"""Shelf button for Build."""
+import os
+
+from maya import cmds, mel
+
+LABEL = "Build"
+ICON = "buildModifier.png"
+CLICK_COMMAND = "import build_modifier.shelf\nbuild_modifier.shelf.on_click()"
+DOUBLE_CLICK_COMMAND = "import build_modifier.shelf\nbuild_modifier.shelf.on_double_click()"
+
+
+def install(shelf=None):
+    for button in cmds.shelfLayout(shelf, query=True, childArray=True) or []:
+        if "build_modifier" in (cmds.shelfButton(button, query=True, command=True) or ""):
+            return button
+    return cmds.shelfButton(
+        parent=shelf,
+        label=LABEL,
+        imageOverlayLabel=LABEL,
+        image=_icon(),
+        annotation="Build: click to apply to the selected meshes, double-click for options",
+        sourceType="python",
+        command=CLICK_COMMAND,
+        doubleClickCommand=DOUBLE_CLICK_COMMAND,
+    )
+
+
+def _icon():
+    path = os.path.join(os.path.dirname(__file__), "..", "..", "icons", ICON)
+    return path if os.path.exists(path) else "pythonFamily.png"
+'''
+
+
+def make_module_tool(folder):
+    """A Maya module: a .mod file whose path is ".", with scripts/, plug-ins/ and icons/ beside it."""
+    files = {
+        "build_modifier.mod": "+ build_modifier 1.0 .\n",
+        "install_drop.py": "def onMayaDroppedPythonFile(*_):\n    import build_modifier.shelf\n",
+        "README.md": "# Build\n",
+        ".gitattributes": "* text=auto\n",
+        "icons/buildModifier.png": "png",
+        "plug-ins/buildModifierNode.py": "# the node\n",
+        "scripts/build_modifier/__init__.py": "",
+        "scripts/build_modifier/shelf.py": MODULE_SHELF_PY,
+        "tests/test_in_maya.py": 'cmds.shelfButton(command="print(1)", sourceType="python")\n',
+    }
+    for rel, text in files.items():
+        path = os.path.join(folder, *rel.split("/"))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+    return folder

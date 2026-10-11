@@ -40,6 +40,11 @@ class MayaFolders:
     icons: str
     scripts: str
     version: str = ""
+    modules: str = ""  # maya/<version>/modules, next to the scripts folder unless given
+
+    def __post_init__(self):
+        if not self.modules and self.scripts:
+            self.modules = os.path.join(os.path.dirname(os.path.normpath(self.scripts)), "modules")
 
     def get(self, kind: str) -> str:
         return getattr(self, kind)

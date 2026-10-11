@@ -18,9 +18,11 @@ from dataclasses import asdict, dataclass, field
 from urllib.parse import urljoin, urlparse
 
 from .manifest import (
-    IMAGE_EXTS, INDEX_NAME, MANIFEST_NAME, ManifestError, load_manifest, normalize_category, parse_manifest, read_tool, scan_folder,
+    IMAGE_EXTS, INDEX_NAME, MANIFEST_NAME, ManifestError, is_wrapper, load_manifest, normalize_category, parse_manifest,
+    read_tool, scan_folder,
 )
 from .models import CATEGORIES, Location, ToolInfo, slugify
+from .modules import find_mod_files
 from .net import Http, NetError, NotFound
 
 KIND_LABELS = {"github": "GitHub repo", "index": "Feed (index.json)", "zip": ".zip download", "folder": "Folder"}
@@ -143,11 +145,16 @@ def safe_extract(archive: str, dest: str) -> None:
         zf.extractall(dest)
 
 
-def single_child(folder: str) -> str:
-    """Archives often wrap everything in one top folder; step into it."""
-    entries = [e for e in os.listdir(folder) if not e.startswith(".") and e != "__MACOSX"]
-    if len(entries) == 1 and os.path.isdir(os.path.join(folder, entries[0])):
-        return os.path.join(folder, entries[0])
+def single_child(folder: str, depth: int = 3) -> str:
+    """Archives often wrap everything in a top folder, or a few nested ones; step into them.
+
+    Stops at a folder that is part of the tool itself, such as scripts/ or a Python package.
+    """
+    for _ in range(depth):
+        entries = [e for e in os.listdir(folder) if not e.startswith(".") and e != "__MACOSX"]
+        if len(entries) != 1 or not is_wrapper(os.path.join(folder, entries[0])):
+            break
+        folder = os.path.join(folder, entries[0])
     return folder
 
 
@@ -265,7 +272,7 @@ class Resolver:
                 if is_feed(data):
                     return self._index_tools(data, errors, base_dir=folder)
         tools = []
-        for entry in sorted(os.listdir(folder)):
+        for entry in [] if find_mod_files(folder) else sorted(os.listdir(folder)):  # a module is one tool
             sub = os.path.join(folder, entry)
             if os.path.isfile(os.path.join(sub, MANIFEST_NAME)):
                 try:
@@ -273,8 +280,12 @@ class Resolver:
                 except ManifestError as exc:
                     errors.append(str(exc))
                     continue
-                found.location = Location("folder", path=sub)
-                tools.append(found)
+            elif os.path.isdir(sub) and find_mod_files(sub):
+                found = scan_folder(sub)
+            else:
+                continue
+            found.location = Location("folder", path=sub)
+            tools.append(found)
         if tools:
             return tools
         tool = scan_folder(folder)
@@ -385,7 +396,7 @@ class Resolver:
                 id=slugify(name),
                 name=name,
                 version=ref.lstrip("vV") if ref else "",
-                description="No easytool.json. EasyTool will look for shelves, icons and scripts after downloading.",
+                description="No easytool.json. EasyTool will look for shelves, icons, scripts and modules after downloading.",
                 has_manifest=False,
             )
         else:
@@ -437,7 +448,7 @@ class Resolver:
         else:
             raise ValueError(f"File not found: {src}")
 
-    def _download_zip(self, src: str, version: str = "", cache: bool = True) -> str:
+    def _download_zip(self, src: str, version: str = "", cache: bool = True, depth: int = 3) -> str:
         downloads = os.path.join(self.cache_dir, "downloads")
         target = os.path.join(downloads, _key(f"{src}#{version}"))
         marker = os.path.join(target, ".complete")
@@ -453,7 +464,7 @@ class Resolver:
             finally:
                 os.remove(archive)
             open(marker, "w").close()
-        return single_child(content)
+        return single_child(content, depth)
 
     def fetch_payload(self, tool: ToolInfo) -> str:
         """Return a local folder holding the tool's files, downloading it if needed."""
@@ -465,6 +476,7 @@ class Resolver:
             return self._download_zip(loc.url, version=tool.version, cache=bool(tool.version))
         if loc.kind == "github":
             url = f"https://api.github.com/repos/{loc.repo}/zipball" + (f"/{loc.ref}" if loc.ref else "")
-            folder = self._download_zip(url, cache=bool(loc.ref))
+            # A subfolder is relative to the repo, so step into the zipball's own top folder only.
+            folder = self._download_zip(url, cache=bool(loc.ref), depth=1 if loc.subdir else 3)
             return os.path.join(folder, loc.subdir) if loc.subdir else folder
         raise ValueError(f"Don't know how to fetch {tool.name}")
